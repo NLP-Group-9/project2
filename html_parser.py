@@ -290,7 +290,7 @@ def get_methods_from_instruction(doc):
         
         #prep
         "peel", "core", "pit", "seed", "skin", "trim", "debone",
-        "marinate", "season", "coat", "dredge", "bread",
+        "marinate", "season", "coat", "dredge", "bread", "lay",
         
         #modifications
         "mash", "puree", "grind", "crush", "grate", "shred", "zest",
@@ -314,17 +314,25 @@ def get_methods_from_instruction(doc):
     ]
     
     found_methods = []
-    
-    # Extract verbs from the instruction
+    instruction = doc.text.lower()
+
+    # Method 1: Use spaCy POS tagging to find verbs
     for token in doc:
         if token.pos_ == "VERB":
-            # Get the lemma (base form) of the verb
             verb_lemma = token.lemma_.lower()
-            
-            # Check if this verb is a cooking method
             if verb_lemma in cooking_methods:
                 if verb_lemma not in found_methods:
                     found_methods.append(verb_lemma)
+    
+    # Method 2: Direct text matching as fallback
+    # This catches cases where spaCy mistagged the verb
+    for method in cooking_methods:
+        # Create word boundary pattern to avoid partial matches
+        # e.g., don't match "bake" in "baker"
+        pattern = r'\b' + re.escape(method) + r'\b'
+        if re.search(pattern, instruction):
+            if method not in found_methods:
+                found_methods.append(method)
     
     return found_methods
 
