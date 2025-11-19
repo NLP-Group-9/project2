@@ -51,6 +51,12 @@ def is_next_step_query(query):
         r'advance',
         r'continue',
         r'what\'s next',
+        r'forward',
+        r'move ahead',
+        r'proceed',
+        r'forward one step',
+        r'go forward',
+        r'resume',
     ]
 
     query = query.lower().strip()
@@ -67,9 +73,12 @@ def is_go_back_a_step_query(query):
         r'last step',
         r'go back a step',
         #only single letter b
-        r'\bb\b'
+        r'^b$',
         r'go back',
-        r'go back one step'
+        r'go back one step',
+        r'back',
+        r'previous',
+        r'previous step'
     ]
 
     query = query.lower().strip()
@@ -87,7 +96,8 @@ def is_begin_recipe_query(query):
         r'begin recipe',
         r'start the recipe',
         r'start',
-        r'walkthrough'
+        r'walkthrough',
+        r'beginning',
     ]
 
     query = query.lower().strip()
@@ -104,7 +114,12 @@ def is_repeat_query(query):
         r'\brepeat step\b',
         r'\bsay that again\b',
         r'\bwhat was that\b',
-        r'\bagain\b$'
+        r'\bagain\b$',
+        r'again',
+        r'repeat',
+        r'say again',
+        r'tell me again',
+        r'what did you say',
     ]
     
     q = query.lower().strip()
@@ -128,7 +143,7 @@ def extract_ingredient_from_how_much(query):
 
     # Pattern: "how much " followed by ingredient, then optional trailing phrases
     # Handle: "how much X do i need", "how much X is needed", "how much X do we need"
-    pattern = r'how much (.+?)(?:\s+(?:do (?:i|we)|is|are)\s+(?:need|needed))?[?.]?$'
+    pattern = r'how (?:much|many) (?!time\b)(.+?)(?:\s+(?:do (?:i|we)|is|are)\s+(?:need|needed))?[?.]?$'
     match = re.search(pattern, query)
     
     if match:
@@ -171,7 +186,18 @@ def handle_substitution_query(query):
     patterns = [
         r'substitute for (.+)',
         r'what can i use instead of (.+)',
-        r'what can i substitute for (.+)'
+        r'what can i substitute for (.+)',
+        r'what can i use instead of (.+)',
+        r'what can i use as a substitute for (.+)',
+        r'in place of (.+)',
+        r'alternative to (.+)',
+        r'replacement for (.+)',
+        r'i dont have (.+)',
+        r'i dont have any(.+)',
+        r'i do not have (.+)',
+        r'i do not have any (.+)',
+        r'im out of (.+)',
+        r'i am out of (.+)',
         ]
 
     for p in patterns:
@@ -201,13 +227,18 @@ def handle_cooking_time_query(query, steps, time_or_temp_covered):
 
     q = query.lower().strip()
 
-    #stole straight from parser for consistency
+    #stole straight from parser for consistency but also I added "cook"
     actions = ["bake", "roast", "broil", "grill", "toast", "sear",
-        "boil", "simmer", "poach", "steam", "blanch", "parboil",
+        "boil", "simmer", "poach", "steam", "blanch", "parboil", "cook",
         "fry", "deep-fry", "pan-fry", "saute", "sautee", "stir-fry",
         "braise", "stew", "microwave", "smoke", "char", "caramelize", "reduce"
     ]
-    time_mentioned = ("how long" in q) or ("time" in q)
+    time_mentioned = ("how long" in q) or ("time" in q) or ("minutes" in q) or \
+    ("hours" in q) or ("hour" in q) or ("minute" in q) or ("cook for" in q) or \
+    ("bake for" in q) or ("done" in q) or ("ready" in q)
+
+    if not (time_mentioned):
+        return(False)
 
     found_action = None
     for action in actions:
@@ -215,14 +246,29 @@ def handle_cooking_time_query(query, steps, time_or_temp_covered):
             found_action = action
             break
 
-    if (found_action and time_mentioned):
+
+    something_found = False
+    
+
+    if found_action:
         for step in steps:
             if found_action in step.description.lower():
                 print(f"Step {step.step_number}: {step.description}")
+                something_found = True
+            
         return(True)
     
-    print("Couldn't find any relevant cooking time information.")
-    return(False)
+    #otherwise, no specific action found, list anything with time mentioned
+    for step in steps:
+        if re.search(r'(\d+\s*(minutes|minute|hours|hour))', step.description.lower()) \
+            or re.search(r'\b(how long|time|ready|done)\b', step.description.lower()):
+            print(f"Step {step.step_number}: {step.description}")
+            something_found = True
+    
+    if (something_found == False):
+        print("Couldn't find any relevant cooking time information.")
+        return(False)
+    return(True)
 
 
 def handle_cooking_temp_query(query, steps):
@@ -330,8 +376,8 @@ def handle_what_is_question(query, fsm):
     Returns:
         bool: True if handled, False otherwise
     """
-    #what's that/what is that?
-    if re.search(r"what(?:'s| is) that\??$", query):
+    #what's that/what is that?/or even whats that
+    if re.search(r"what(?:'?s| is) that\??$", query):
         step = fsm.get_current_step()
         if hasattr(step, "ingredients") and step.ingredients:
             for ingredient in step.ingredients:
@@ -343,8 +389,8 @@ def handle_what_is_question(query, fsm):
                 
 
     #less vague
-    # Pattern: "what is " or "what's " followed by the term
-    pattern = r"what(?:'s| is) (.+?)[?.]?$"
+    # Pattern: "what is " or "what's" or "whats" followed by the term
+    pattern = r"what(?:'?s| is) (.+?)[?.]?$"
     match = re.search(pattern, query)
     
     if not match:
@@ -447,6 +493,13 @@ def is_recipe_query(query):
         r'show\s+all\s+steps',
         r'display\s+the\s+recipe',
         r'full\s+recipe',
+        r'show\s+me\s+the\s+recipe',
+        r'display\s+all\s+steps',
+        r'display\s+recipe',
+        r'display\s+the\s+recipe',
+        r'whole recipe',
+        r'entire recipe',
+        r'complete recipe',
     ]
     
     for pattern in patterns:
@@ -520,6 +573,23 @@ def process_user_query(ingredients, steps, fsm, query):
         show_current_step(fsm)
         return(True)
     
+    # Check for "how much" questions
+    if (query_lower.startswith("how much")) or (query_lower.startswith("how many")):
+        if handle_how_much_question(ingredients, query_lower, fsm):
+            return True
+    
+    # Check for "what is" questions
+    if (query_lower.startswith("what is")) or (query_lower.startswith("what's"))\
+        or (query_lower.startswith("whats")):
+        if handle_what_is_question(query_lower, fsm):
+            return True
+    
+    # Check for "how" questions (that are not "how much")
+    if query_lower.startswith("how"):
+        if handle_how_do_i_question(query_lower, fsm):
+            return True
+        
+    
     time_or_temp_covered = False
 
     if handle_cooking_temp_query(query, steps):
@@ -532,21 +602,6 @@ def process_user_query(ingredients, steps, fsm, query):
     
     if handle_substitution_query(query_lower):
         return(True)
-    
-    # Check for "how much" questions
-    if query_lower.startswith("how much"):
-        if handle_how_much_question(ingredients, query_lower, fsm):
-            return True
-    
-    # Check for "what is" questions
-    if query_lower.startswith("what is"):
-        if handle_what_is_question(query_lower, fsm):
-            return True
-    
-    # Check for "how" questions (that are not "how much")
-    if query_lower.startswith("how"):
-        if handle_how_do_i_question(query_lower, fsm):
-            return True
 
     # Fallback: help message
     print("\nSorry, I didn't understand that.")
