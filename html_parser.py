@@ -53,7 +53,7 @@ def clean_ingredient_name(name):
     Returns:
         str: Cleaned ingredient name
     """
-    # common descriptors
+    #common descriptors
     descriptors = [
         'whole wheat', 'whole grain', 'white', 'brown',
         'fresh', 'frozen', 'canned', 'dried', 'dry',
@@ -80,19 +80,39 @@ def clean_ingredient_name(name):
         ', drained', ', rinsed'
     ]
     
-    #remove preps
+    #additional trail phrases to remove
+    trailing_phrases = [
+        ' to taste',
+        ' or to taste', 
+        ' as needed',
+        ' or as needed',
+        ' optional',
+        ' if needed',
+        ' if desired'
+    ]
+    
+    #remove prep phrases
     for phrase in prep_phrases:
         if phrase in name.lower():
-            # Find the phrase and remove everything from that point
+            #find the phrase and remove everything from that point
             idx = name.lower().find(phrase)
             name = name[:idx]
+    
+    #remove trailing phrases (without comma requirement)
+    name_lower = name.lower()
+    for phrase in trailing_phrases:
+        if phrase in name_lower:
+            #find the phrase and remove everything from that point
+            idx = name_lower.find(phrase)
+            name = name[:idx].strip()
+            name_lower = name.lower()
     
     #remove descriptors
     name_lower = name.lower()
     for descriptor in descriptors:
-        # Check if name starts with this descriptor
+        #check if name starts with this descriptor
         if name_lower.startswith(descriptor + ' '):
-            # Remove the descriptor
+            #remove the descriptor
             name = name[len(descriptor):].strip()
             name_lower = name.lower()
     
@@ -167,16 +187,64 @@ def get_raw_ingredients_instructions(url):
         # Clean the name first
         name = clean_ingredient_name(name)
 
-        # Create Ingredient
-        ingredient = Ingredient(name=name, quantity=quantity, measurement_unit=unit)
-        ingredients.append(ingredient)
+        # Split on "and" to create separate ingredients
+        # e.g., "salt and ground black pepper" -> ["salt", "ground black pepper"]
+        if ' and ' in name:
+            ingredient_parts = [part.strip() for part in name.split(' and ')]
+            for part in ingredient_parts:
+                if part:  # Only add non-empty parts
+                    ingredient = Ingredient(name=part, quantity=quantity, measurement_unit=unit)
+                    ingredients.append(ingredient)
+        else:
+            # Create single Ingredient
+            ingredient = Ingredient(name=name, quantity=quantity, measurement_unit=unit)
+            ingredients.append(ingredient)
 
     # Extract instructions using config
     instruction_config = config["instruction_item"]
-    instruction_items = soup.find_all(
-        instruction_config["tag"],
-        class_=instruction_config.get("class")
-    )
+    
+    # Special handling for Serious Eats: find instructions within the instructions section
+    if "seriouseats.com" in url:
+        # Find the instructions section container
+        instructions_section = soup.find('section', id=lambda x: x and 'section--instructions' in x)
+        
+        if instructions_section:
+            # Get all paragraphs within this section that match the config
+            instruction_items = instructions_section.find_all(
+                instruction_config["tag"],
+                class_=instruction_config.get("class")
+            )
+        else:
+            # Fallback to original method if section not found
+            instruction_items = soup.find_all(
+                instruction_config["tag"],
+                class_=instruction_config.get("class")
+            )
+    
+    # Special handling for AllRecipes: find instructions within the mm-recipes-steps container
+    elif "allrecipes.com" in url:
+        # Find the instructions section container
+        instructions_section = soup.find('div', id=lambda x: x and 'mm-recipes-steps' in x)
+        
+        if instructions_section:
+            # Get all paragraphs within this section that match the config
+            instruction_items = instructions_section.find_all(
+                instruction_config["tag"],
+                class_=instruction_config.get("class")
+            )
+        else:
+            # Fallback to original method if section not found
+            instruction_items = soup.find_all(
+                instruction_config["tag"],
+                class_=instruction_config.get("class")
+            )
+    
+    else:
+        # For other sites, use the original method
+        instruction_items = soup.find_all(
+            instruction_config["tag"],
+            class_=instruction_config.get("class")
+        )
     
     for item in instruction_items:
         # Get the text from each instruction paragraph
@@ -199,7 +267,7 @@ def atomize_steps(instructions):
     import spacy
     
     #conjunctions that separate two steps
-    conjunctions = ['and', 'then']
+    conjunctions = ['then']
     
     #store final results
     atomic_steps = []
@@ -273,13 +341,45 @@ def get_ingredients_from_instruction(doc, ingredients):
     """
     instruction_text = doc.text.lower()
     found_ingredients = []
-    
+
+    #1st Pass: exact matching by full name match
     for ingredient in ingredients:
         ingredient_name = ingredient.name.lower()
         
-        #check if ingredient name present in text
-        if ingredient_name in instruction_text:
-            found_ingredients.append(ingredient.name)
+        #try exact match
+        pattern = r'\b' + re.escape(ingredient_name) + r'\b'
+        if re.search(pattern, instruction_text):
+            if ingredient.name not in found_ingredients:
+                found_ingredients.append(ingredient.name)
+    
+    #2nd pass: Partial matching - only for ingredients not yet found
+    # This handles cases like "noodles" matching "lasagna noodles" or "sauce" matching "tomato-basil pasta sauce"
+    for ingredient in ingredients:
+        #skip if already found via exact match
+        if ingredient.name in found_ingredients:
+            continue
+            
+        ingredient_name = ingredient.name.lower()
+        ingredient_words = ingredient_name.split()
+        
+        #only use partial matching for multi-word ingredients
+        #single-word ingredients should have matched in Pass 1
+        if len(ingredient_words) <= 1:
+            continue
+        
+        #check if ANY word from the ingredient appears in the instruction
+        for word in ingredient_words:
+            # Skip common descriptors and generic nouns that appear in multiple ingredients
+            skip_words = ['ground', 'fresh', 'dried', 'chopped', 'sliced', 'diced', 
+                          'cheese', 'oil', 'sauce']  # Generic nouns that could match multiple ingredients
+            if word in skip_words:
+                continue
+                
+            word_pattern = r'\b' + re.escape(word) + r'\b'
+            if re.search(word_pattern, instruction_text):
+                if ingredient.name not in found_ingredients:
+                    found_ingredients.append(ingredient.name)
+                break  #found a match, no need to check other words
     
     return found_ingredients
 
@@ -539,10 +639,11 @@ def process_url(url):
     return ingredients, instructions
 
 def main():
-    allrecipes_url = "https://www.allrecipes.com/recipe/218091/classic-and-simple-meat-lasagna/"
-    seriouseats_url = "https://www.seriouseats.com/pecan-pie-cheesecake-recipe-11843450"
+    url1 = "https://www.allrecipes.com/recipe/218091/classic-and-simple-meat-lasagna/"
+    url2 = "https://www.allrecipes.com/recipe/228285/teriyaki-salmon/"
+    url3 = "https://www.seriouseats.com/pecan-pie-cheesecake-recipe-11843450"
 
-    url = allrecipes_url #for testing
+    url = url3 #for testing
     ingredients, instructions = process_url(url)
 
     fsm = RecipeStateMachine(instructions)
