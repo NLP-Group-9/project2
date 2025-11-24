@@ -5,131 +5,86 @@ A web-based recipe parsing and querying system that uses NLP to extract and answ
 **Python version:** 3.11.9  
 **GitHub:** https://github.com/NLP-Group-9/project2
 
-## Features
+## Quick Start
 
-- 🍳 Parse recipes from AllRecipes and Serious Eats
-- 🎤 Voice-enabled query interface (speech-to-text)
-- 💬 Natural language recipe queries
-- 📝 Step-by-step recipe walkthrough
-- 🔍 Ingredient substitution suggestions
-- 📚 Cooking method and definition lookups
-
-## Installation
-
-### 1. Install Dependencies
+### Installation
 
 ```bash
 pip install -r requirements.txt
 python -m spacy download en_core_web_sm
+```
 
-## Steps to run
-1) Run recipe_chat with:
->python3 recipe_chat.py
+### Run the Application
 
-## Recipes and Websites Tested On
-1) allrecipes.com like:
-   "https://www.allrecipes.com/recipe/218091/classic-and-simple-meat-lasagna/"
-   "https://www.allrecipes.com/recipe/228285/teriyaki-salmon/"
+```bash
+python app.py
+```
 
-3) seriouseats.com like:
-   "https://www.seriouseats.com/pecan-pie-cheesecake-recipe-11843450"
-   
-## Supported User Inputs
+Then open your browser to `http://localhost:5000`
 
-Below is a comprehensive list of the types of queries the bot understands. These examples cover everything the bot is designed to do.
+## Usage
 
----
+1. **Parse a Recipe:** Enter a recipe URL from allrecipes.com or seriouseats.com and click "Parse Recipe"
+2. **Ask Questions:** Use the voice button (🎤) or type your question and click "Ask"
 
-### **1. Recipe Retrieval and Display**
-Use these commands to view the recipe or its components.
+## Supported Queries
 
-- “Show me the ingredients list.”
-- “What are the ingredients?”
-- “Ingredients please.”
-- “Display the recipe.”
-- “Show me the full recipe.”
+### Recipe Display
+- `show ingredients` - List all ingredients
+- `show recipe` - Display all steps
+- `show step 3` - Show a specific step
 
----
+### Recipe Walkthrough
+- `start recipe` - Begin step-by-step walkthrough
+- `next` or `n` - Next step
+- `back` or `b` - Previous step
+- `repeat` - Repeat current step
 
-### **2. Navigation Commands**
-Control the recipe walkthrough step-by-step.
+### Ingredient Questions
+- `how much salt do I need?`
+- `how many eggs do I need?`
+- `how much of that?` (in walkthrough mode)
 
-- “Start the recipe walkthrough.”
-- “Start cooking.”
-- “Start.”
-- “Next.”
-- “Go to the next step.”
-- “Go back.”
-- “Go back a step.”
-- “Repeat please.”
-- “What’s next?”
-- “What was that again?”
-- “Take me to step 3.”
-- “Resume recipe walkthrough.”
-- “Resume.”
+### Cooking Questions
+- `what temperature?`
+- `how long to bake?`
+- `how long does it take?`
 
----
+### Substitutions
+- `what can I substitute for butter?`
+- `I don't have eggs`
 
-### **3. Step Parameter Queries**
-Ask about details in the *current* step (timing, quantities, temperatures, substitutions).
+### Definitions & How-To
+- `what is zesting?` - Get Google search link
+- `how do I julienne?` - Get YouTube video search link
 
-- “How much salt do I need?”
-- “What temperature should the oven be?”
-- “How long do I bake it?” *(only works if “bake” appears in the recipe steps)*
-- “When is it done?”
-- “What can I substitute for butter?”
-- “What can I use instead of butter?”
+## Browser Compatibility
 
----
-
-### **4. Clarification Questions**
-Ask for explanations of tools, terms, or techniques.
-
-- “What is a whisk?”
-- “What’s X?”
-- “How do I sauté?”
-- “How do I X?”
-
----
-
-### **5. Procedure Questions**
-Ask how to perform an action mentioned in the current step.  
-*(Requires starting the recipe walkthrough first.)*
-
-- “How do I knead the dough?”
-- “How do I do that?”
-- “What is that?” *(referring to the current step’s action)*
-
----
-
-### **6. Quantity Questions**
-Ask about ingredient amounts.
-
-- **Specific:** “How much flour do I need?”
-- **Step-dependent:** “How much of that do I need?” *(requires the recipe walkthrough to be active)*
-
----
+**Speech Recognition:**
+- ✅ Chrome (recommended)
+- ✅ Edge
+- ✅ Safari (limited)
+- ❌ Firefox (text input only)
 
 ## Parsing Logic
-1) Ingredient and Instruction extraction from websites.
-   We use BeautifulSoup to read the url and then identify hard coded html tags to identify and extract ingredients and instructions text from the url.
 
-2) Ingredient Parsing.
-   The websites that work (allrecipes and seriouseats) have the html tags already differentiate the name, quantity, and measurements of the ingredients which made it incredibly easy to parse. We use this information because it was already expertly prepared by the writer.
-
-3) Atomize Instructions.
-   We first atomize the steps by splitting the instructions by common conjunctions and punctuation.
-
-4) Instruction Parsing.
-   The main purpose of this step is to identify the ingredients, tools, methods, times, and temps available in a specified instruction step.
-   - Ingredients were identified from the ingredients obtained from Step 2). We used substring search for the ingredients since some of the ingredients appear with shorter names in the ingredients.
-   - Tools were identified from using a hardcoded list of tools.
-   - Methods were extracted from a hardcoded list plus the use of spaCy tagging for VERBS
-   - Time was extracted by finding common temp terms (medium heat, low heat, etc) and the detection of numbers from units (Fahrenheit, Celsius, etc)
-   - Temp was extracted by finding common numbers including units (seconds, minutes, hours, etc).
+1. **Ingredient and Instruction Extraction:** Uses BeautifulSoup to parse HTML and identify structured data tags
+2. **Ingredient Parsing:** Extracts quantity, unit, and name from structured HTML tags
+3. **Instruction Atomization:** Splits instructions by conjunctions using spaCy NLP
+4. **Instruction Parsing:** Identifies ingredients, tools, methods, times, and temperatures in each step
+   - Ingredients: Substring matching against recipe ingredients
+   - Tools: Hardcoded list of cooking tools
+   - Methods: Hardcoded list + spaCy verb tagging
+   - Time: Regex patterns for duration (minutes, hours, etc.)
+   - Temperature: Regex patterns for degrees and heat levels
 
 ## Extra Credit Features
-1) Supports allrecipes.com AND seriouseats.com recipes. We tried to also get functionality for the listed websites on the project page: epicurious, bonappetit, delish, and foodnetwork but all of them had issues that were out of our control.
-Mainly, epicurious, bonappetit, delish required a paid subscription to access recipes. Foodnetwork did not allow for out html reader to access the website.
 
-2) (IN PROGRESS) Speech to text functionality.
+1. **Multi-website Support:** Supports allrecipes.com and seriouseats.com recipes
+2. **Speech-to-Text:** Voice-enabled query interface using Web Speech API
+
+## Tested Recipes
+
+- `https://www.allrecipes.com/recipe/218091/classic-and-simple-meat-lasagna/`
+- `https://www.allrecipes.com/recipe/228285/teriyaki-salmon/`
+- `https://www.seriouseats.com/pecan-pie-cheesecake-recipe-11843450`
