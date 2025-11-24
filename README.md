@@ -25,7 +25,7 @@ Then open your browser to `http://localhost:5000`
 ## Usage
 
 1. **Parse a Recipe:** Enter a recipe URL from allrecipes.com or seriouseats.com and click "Parse Recipe"
-2. **Ask Questions:** Use the voice button (🎤) or type your question and click "Ask"
+2. **Ask Questions:** Use the voice button or type your question and click "Ask"
 
 ## Supported Queries
 
@@ -61,22 +61,23 @@ Then open your browser to `http://localhost:5000`
 ## Browser Compatibility
 
 **Speech Recognition:**
-- ✅ Chrome (recommended)
-- ✅ Edge
-- ✅ Safari (limited)
-- ❌ Firefox (text input only)
+- Chrome (recommended)
+- Edge
+- Safari (limited)
+- Firefox (text input only)
 
 ## Parsing Logic
 
 1. **Ingredient and Instruction Extraction:** Uses BeautifulSoup to parse HTML and identify structured data tags
 2. **Ingredient Parsing:** Extracts quantity, unit, and name from structured HTML tags
 3. **Instruction Atomization:** Splits instructions by conjunctions using spaCy NLP
-4. **Instruction Parsing:** Identifies ingredients, tools, methods, times, and temperatures in each step
+4. **Instruction Parsing:** Identifies ingredients, tools, methods, times, temperatures, types in each step
    - Ingredients: Substring matching against recipe ingredients
    - Tools: Hardcoded list of cooking tools
    - Methods: Hardcoded list + spaCy verb tagging
    - Time: Regex patterns for duration (minutes, hours, etc.)
    - Temperature: Regex patterns for degrees and heat levels
+   - Type: based on Observation, Advice, and Warning keywords.
 
 ## Extra Credit Features
 
